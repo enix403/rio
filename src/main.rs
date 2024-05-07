@@ -99,66 +99,81 @@ impl<'a, R> Extractor<'a, R> {
     pub fn new(rio: &'a mut Rio<R>) -> Self {
         Self { rio }
     }
+}
 
-    fn to_digit(val: u8) -> Option<u8> {
-        match val {
-            b'0'..=b'9' => Some((val - b'0')),
-            _ => None,
-        }
-    }
-
-    fn small_value_to_num<T: FromPrimitive>(val: u8) -> T {
-        unsafe { T::from_u8(val).unwrap_unchecked() }
+fn to_digit(val: u8) -> Option<u8> {
+    match val {
+        b'0'..=b'9' => Some((val - b'0')),
+        _ => None,
     }
 }
 
-trait ExtractableNum
-where
-    Self: Zero + FromPrimitive + CheckedAdd<Output = Self> + CheckedMul<Output = Self>,
-{
+fn small_value_to_num<T: FromPrimitive>(val: u8) -> T {
+    unsafe { T::from_u8(val).unwrap_unchecked() }
 }
 
-impl ExtractableNum for i32 {}
-impl ExtractableNum for u32 {}
-
-impl<'a, T, R> Extract<T> for Extractor<'a, R>
+fn extract_int<T, R>(rio: &mut Rio<R>) -> Option<T>
 where
-    T: ExtractableNum,
+    T: Zero + FromPrimitive + CheckedAdd<Output = T> + CheckedMul<Output = T>,
     R: Iterator<Item = io::Result<u8>>,
 {
-    fn extract(&mut self) -> Option<T> {
-        let mut val: T = T::zero();
-        let ten = Self::small_value_to_num(10);
+    let mut val: T = T::zero();
+    let ten = small_value_to_num(10);
 
-        let mut started = false;
+    let mut started = false;
 
-        while let Some(current) = self.rio.getch() {
-            let as_digit = Self::to_digit(current);
+    while let Some(current) = rio.getch() {
+        let as_digit = to_digit(current);
 
-            let updated = as_digit.and_then(|x| {
-                let x = Self::small_value_to_num(x);
-                val.checked_mul(&ten).and_then(|val| val.checked_add(&x))
-            });
+        let updated = as_digit.and_then(|x| {
+            let x = small_value_to_num(x);
+            val.checked_mul(&ten).and_then(|val| val.checked_add(&x))
+        });
 
-            match updated {
-                Some(updated) => {
-                    val = updated;
-                    started = true;
-                }
-                None => {
-                    self.rio.ungetch(current);
-                    break;
-                }
+        match updated {
+            Some(updated) => {
+                val = updated;
+                started = true;
+            }
+            None => {
+                rio.ungetch(current);
+                break;
             }
         }
+    }
 
-        if started {
-            Some(val)
-        } else {
-            None
-        }
+    if started {
+        Some(val)
+    } else {
+        None
     }
 }
+
+macro_rules! extract_int_impl {
+    ($type:ty) => {
+        impl<'a, R> Extract<$type> for Extractor<'a, R>
+        where
+            R: Iterator<Item = io::Result<u8>>,
+        {
+            fn extract(&mut self) -> Option<$type> {
+                extract_int(&mut self.rio)
+            }
+        }
+    };
+}
+
+extract_int_impl!(u8);
+extract_int_impl!(i8);
+extract_int_impl!(u16);
+extract_int_impl!(i16);
+extract_int_impl!(u32);
+extract_int_impl!(i32);
+extract_int_impl!(u64);
+extract_int_impl!(i64);
+extract_int_impl!(u128);
+extract_int_impl!(i128);
+extract_int_impl!(usize);
+extract_int_impl!(isize);
 
 impl<'a, R> Extract<String> for Extractor<'a, R>
 where
@@ -190,8 +205,8 @@ where
 fn main() {
     let mut rio = Rio::new(io::stdin().bytes());
 
-    let a = rio.read::<i32>().unwrap_or_default();
-    let b = rio.read::<i32>().unwrap_or_default();
+    let a = rio.read::<usize>().unwrap_or_default();
+    let b = rio.read::<usize>().unwrap_or_default();
 
     rio.clear();
 
