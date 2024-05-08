@@ -10,6 +10,17 @@ enum InputError {
     Extraction,
 }
 
+fn to_digit(val: u8) -> Option<u8> {
+    match val {
+        b'0'..=b'9' => Some((val - b'0')),
+        _ => None,
+    }
+}
+
+fn small_value_to_num<T: FromPrimitive>(val: u8) -> T {
+    unsafe { T::from_u8(val).unwrap_unchecked() }
+}
+
 struct Rio<R> {
     reader: R,
     ungetted: Option<u8>,
@@ -17,12 +28,11 @@ struct Rio<R> {
     error: Option<InputError>,
 }
 
-trait Extract<T> {
-    fn extract(&mut self) -> Option<T>;
-}
-
-struct Extractor<'a, R> {
-    rio: &'a mut Rio<R>,
+trait Extract: Sized {
+    // fn extract(&mut self) -> Option<T>;
+    fn extract<R>(rio: &mut Rio<R>) -> Option<Self>
+    where
+        R: Iterator<Item = io::Result<u8>>;
 }
 
 impl<R> Rio<R>
@@ -75,7 +85,7 @@ where
 
     fn read<T>(&mut self) -> Option<T>
     where
-        for<'a> Extractor<'a, R>: Extract<T>,
+        T: Extract,
     {
         // Skip whitespace
         while let Some(current) = self.getch() {
@@ -85,7 +95,8 @@ where
             }
         }
 
-        let result = Extractor::new(self).extract();
+        // let result = Extractor::new(self).extract();
+        let result = <T as Extract>::extract(self);
 
         if result.is_none() {
             self.error = Some(InputError::Extraction);
@@ -93,23 +104,6 @@ where
 
         result
     }
-}
-
-impl<'a, R> Extractor<'a, R> {
-    pub fn new(rio: &'a mut Rio<R>) -> Self {
-        Self { rio }
-    }
-}
-
-fn to_digit(val: u8) -> Option<u8> {
-    match val {
-        b'0'..=b'9' => Some((val - b'0')),
-        _ => None,
-    }
-}
-
-fn small_value_to_num<T: FromPrimitive>(val: u8) -> T {
-    unsafe { T::from_u8(val).unwrap_unchecked() }
 }
 
 fn extract_int<T, R>(rio: &mut Rio<R>) -> Option<T>
@@ -151,12 +145,13 @@ where
 
 macro_rules! extract_int_impl {
     ($type:ty) => {
-        impl<'a, R> Extract<$type> for Extractor<'a, R>
-        where
-            R: Iterator<Item = io::Result<u8>>,
+        impl Extract for $type
         {
-            fn extract(&mut self) -> Option<$type> {
-                extract_int(&mut self.rio)
+            fn extract<R>(rio: &mut Rio<R>) -> Option<Self>
+            where
+                R: Iterator<Item = io::Result<u8>>,
+            {
+                extract_int(rio)
             }
         }
     };
@@ -175,18 +170,19 @@ extract_int_impl!(i128);
 extract_int_impl!(usize);
 extract_int_impl!(isize);
 
-impl<'a, R> Extract<String> for Extractor<'a, R>
-where
-    R: Iterator<Item = io::Result<u8>>,
+impl Extract for String
 {
-    fn extract(&mut self) -> Option<String> {
+    fn extract<R>(rio: &mut Rio<R>) -> Option<Self>
+    where
+        R: Iterator<Item = io::Result<u8>>,
+    {
         let mut result = String::new();
 
         let mut started = false;
 
-        while let Some(current) = self.rio.getch() {
+        while let Some(current) = rio.getch() {
             if current.is_ascii_whitespace() {
-                self.rio.ungetch(current);
+                rio.ungetch(current);
                 break;
             }
 
