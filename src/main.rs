@@ -26,10 +26,11 @@ struct Rio<R> {
     ungetted: Option<u8>,
     ended: bool,
     error: Option<InputError>,
+    ignore_count: u32,
+    ignore_stop: Option<u8>,
 }
 
 trait Extract: Sized {
-    // fn extract(&mut self) -> Option<T>;
     fn extract<R>(rio: &mut Rio<R>) -> Option<Self>
     where
         R: Iterator<Item = io::Result<u8>>;
@@ -45,14 +46,12 @@ where
             ungetted: None,
             ended: false,
             error: None,
+            ignore_count: 0,
+            ignore_stop: None,
         }
     }
 
-    fn getch(&mut self) -> Option<u8> {
-        if self.error.is_some() || self.ended {
-            return None;
-        }
-
+    fn getch_impl(&mut self) -> Option<u8> {
         match self.ungetted {
             Some(_) => self.ungetted.take(),
             _ => {
@@ -75,15 +74,36 @@ where
         }
     }
 
+    fn getch(&mut self) -> Option<u8> {
+        if self.error.is_some() || self.ended {
+            return None;
+        }
+
+        while self.ignore_count > 0 {
+            self.ignore_count -= 1;
+            let c = self.getch_impl();
+            if self.ignore_stop == c {
+                self.ignore_count = 0;
+            }
+        }
+
+        self.getch_impl()
+    }
+
     fn ungetch(&mut self, byte: u8) {
         self.ungetted = Some(byte);
     }
 
-    fn clear(&mut self) -> Option<InputError> {
+    pub fn ignore(&mut self, count: u32, stop: Option<u8>) {
+        self.ignore_count = count;
+        self.ignore_stop = stop;
+    }
+
+    pub fn clear(&mut self) -> Option<InputError> {
         self.error.take()
     }
 
-    fn read<T>(&mut self) -> Option<T>
+    pub fn read<T>(&mut self) -> Option<T>
     where
         T: Extract,
     {
@@ -95,7 +115,6 @@ where
             }
         }
 
-        // let result = Extractor::new(self).extract();
         let result = <T as Extract>::extract(self);
 
         if result.is_none() {
@@ -145,8 +164,7 @@ where
 
 macro_rules! extract_int_impl {
     ($type:ty) => {
-        impl Extract for $type
-        {
+        impl Extract for $type {
             fn extract<R>(rio: &mut Rio<R>) -> Option<Self>
             where
                 R: Iterator<Item = io::Result<u8>>,
@@ -170,8 +188,7 @@ extract_int_impl!(i128);
 extract_int_impl!(usize);
 extract_int_impl!(isize);
 
-impl Extract for String
-{
+impl Extract for String {
     fn extract<R>(rio: &mut Rio<R>) -> Option<Self>
     where
         R: Iterator<Item = io::Result<u8>>,
@@ -201,13 +218,20 @@ impl Extract for String
 fn main() {
     let mut rio = Rio::new(io::stdin().bytes());
 
-    let a = rio.read::<usize>().unwrap_or_default();
-    let b = rio.read::<usize>().unwrap_or_default();
-
-    rio.clear();
+    rio.ignore(1000, Some(b' '));
 
     let s = rio.read::<String>().unwrap_or_default();
-
-    println!("{} x {} = {}", a, b, a * b);
     println!("\"{}\"", s);
+
+    // let
+
+    // let a = rio.read::<usize>().unwrap_or_default();
+    // let b = rio.read::<usize>().unwrap_or_default();
+
+    // rio.clear();
+
+    // let s = rio.read::<String>().unwrap_or_default();
+
+    // println!("{} x {} = {}", a, b, a * b);
+    // println!("\"{}\"", s);
 }
