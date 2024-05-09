@@ -1,5 +1,3 @@
-use std::io;
-
 use num_traits::*;
 
 use crate::error::InputError;

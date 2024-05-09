@@ -2,7 +2,7 @@ use num_traits::*;
 
 pub(crate) fn to_digit(val: u8) -> Option<u8> {
     match val {
-        b'0'..=b'9' => Some((val - b'0')),
+        b'0'..=b'9' => Some(val - b'0'),
         _ => None,
     }
 }

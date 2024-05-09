@@ -8,7 +8,6 @@ mod rio;
 mod stream;
 
 use std::io::Read;
-use stream::RioStream;
 
 fn main() {
     let mut rio = rio::Rio::new(std::io::stdin().bytes());

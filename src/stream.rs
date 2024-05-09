@@ -1,4 +1,3 @@
-use crate::error::InputError;
 use std::io;
 
 #[derive(Debug)]
