@@ -7,3 +7,16 @@ edition = "2021"
 
 [dependencies]
 num-traits = "0.2.18"
+
+[lib]
+name = "rio"
+path = "src/lib.rs"
+
+[[bin]]
+name = "simple"
+path = "examples/simple.rs"
+test = false
+doctest = false
+bench = false
+doc = false
+
