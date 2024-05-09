@@ -1,8 +1,11 @@
 use num_traits::*;
 
+mod utils;
+mod error;
+mod stream;
+
 use crate::error::InputError;
 use crate::stream::{Fetch, RioStream};
-use crate::utils;
 
 pub struct Rio<R> {
     stream: R,

@@ -2,11 +2,6 @@
 #![allow(unused_variables)]
 #![allow(unused_mut)]
 
-mod utils;
-mod error;
-mod rio;
-mod stream;
-
 use std::io::Read;
 
 fn main() {
