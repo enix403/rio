@@ -103,6 +103,28 @@ where
         self.error.take()
     }
 
+    pub fn readline(&mut self) -> Option<String> {
+        let mut result = String::new();
+
+        let mut started = false;
+
+        while let Some(current) = self.getch() {
+            started = true;
+
+            if current == b'\n' {
+                break;
+            }
+
+            result.push(current.into());
+        }
+
+        if started {
+            Some(result)
+        } else {
+            None
+        }
+    }
+
     pub fn read<T>(&mut self) -> Option<T>
     where
         T: Extract,
@@ -218,20 +240,19 @@ impl Extract for String {
 fn main() {
     let mut rio = Rio::new(io::stdin().bytes());
 
-    rio.ignore(1000, Some(b' '));
+    let a = rio.read::<u32>().unwrap_or_default();
+    let b = rio.read::<u32>().unwrap_or_default();
+    println!("{} x {} = {}", a, b, a * b);
 
     let s = rio.read::<String>().unwrap_or_default();
     println!("\"{}\"", s);
 
-    // let
+    let s = rio.readline().unwrap_or_default();
+    println!("\"{}\"", s);
 
-    // let a = rio.read::<usize>().unwrap_or_default();
-    // let b = rio.read::<usize>().unwrap_or_default();
-
-    // rio.clear();
-
-    // let s = rio.read::<String>().unwrap_or_default();
-
-    // println!("{} x {} = {}", a, b, a * b);
-    // println!("\"{}\"", s);
+    let s = rio.readline().unwrap_or_default();
+    println!("\"{}\"", s);
+    
+    let s = rio.readline().unwrap_or_default();
+    println!("\"{}\"", s);
 }
