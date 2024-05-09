@@ -1,14 +1,16 @@
-use num_traits::*;
+use std::io::Read;
 
-mod utils;
 mod error;
 mod stream;
+mod utils;
+
+use num_traits::*;
 
 use crate::error::InputError;
 use crate::stream::{Fetch, RioStream};
 
 pub struct Rio<R> {
-    stream: R,
+    stream: RioStream<R>,
     ended: bool,
     ungetted: Option<u8>,
     error: Option<InputError>,
@@ -17,13 +19,13 @@ pub struct Rio<R> {
 }
 
 pub trait Extract: Sized {
-    fn extract(rio: &mut Rio<impl RioStream>) -> Option<Self>;
+    fn extract(rio: &mut Rio<impl Read>) -> Option<Self>;
 }
 
-impl<R: RioStream> Rio<R> {
-    pub fn new(stream: R) -> Self {
+impl<R: Read> Rio<R> {
+    pub fn new(reader: R) -> Self {
         Self {
-            stream,
+            stream: RioStream::new(reader),
             ended: false,
             ungetted: None,
             error: None,
@@ -150,10 +152,9 @@ impl<R: RioStream> Rio<R> {
     }
 }
 
-fn extract_int<T, R>(rio: &mut Rio<R>) -> Option<T>
+fn extract_int<T>(rio: &mut Rio<impl Read>) -> Option<T>
 where
     T: Zero + FromPrimitive + CheckedAdd<Output = T> + CheckedMul<Output = T>,
-    R: RioStream,
 {
     let mut val: T = T::zero();
     let ten = utils::small_value_to_num(10);
@@ -190,7 +191,7 @@ where
 macro_rules! extract_int_impl {
     ($type:ty) => {
         impl Extract for $type {
-            fn extract(rio: &mut Rio<impl RioStream>) -> Option<Self> {
+            fn extract(rio: &mut Rio<impl Read>) -> Option<Self> {
                 extract_int(rio)
             }
         }
@@ -211,7 +212,7 @@ extract_int_impl!(usize);
 extract_int_impl!(isize);
 
 impl Extract for String {
-    fn extract(rio: &mut Rio<impl RioStream>) -> Option<Self> {
+    fn extract(rio: &mut Rio<impl Read>) -> Option<Self> {
         let mut result = String::new();
 
         let mut started = false;

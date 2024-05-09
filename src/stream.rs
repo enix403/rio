@@ -1,4 +1,4 @@
-use std::io;
+use std::io::{self, Bytes, Read};
 
 #[derive(Debug)]
 pub enum Fetch {
@@ -7,16 +7,19 @@ pub enum Fetch {
     Ended,
 }
 
-pub trait RioStream {
-    fn getch(&mut self) -> Fetch;
+pub struct RioStream<R> {
+    bytes: Bytes<R>,
 }
 
-impl<T> RioStream for T
-where
-    T: Iterator<Item = io::Result<u8>>,
-{
-    fn getch(&mut self) -> Fetch {
-        match self.next() {
+impl<R: Read> RioStream<R> {
+    pub fn new(reader: R) -> Self {
+        Self {
+            bytes: reader.bytes()
+        }
+    }
+    
+    pub fn getch(&mut self) -> Fetch {
+        match self.bytes.next() {
             None => Fetch::Ended,
             Some(Err(err)) => Fetch::Error(err),
             Some(Ok(byte)) => Fetch::Byte(byte),

@@ -1,20 +1,13 @@
-#![allow(unused)]
-#![allow(unused_variables)]
-#![allow(unused_mut)]
-
-use std::io::Read;
+use std::io::Cursor;
 
 fn main() {
-    let mut rio = rio::Rio::new(std::io::stdin().bytes());
+    let mut rio = rio::Rio::new(Cursor::new(String::from("4 2 hello")));
+
+    let a: u32 = rio.read_or_default();
+    let b: u32 = rio.read_or_default();
 
     let name: String = rio.read_or_default();
 
-    let n: u32 = rio.read_or_default();
-    let d: u32 = rio.read_or_default();
-
-    let values: Vec<u32> = rio.read_n_or_default::<u32, _>(n);
-
     println!("name = {}", name);
-    println!("n = {}, d = {}", n, d);
-    println!("values = {:?}", values);
+    println!("n = {}, d = {}", a, b);
 }
