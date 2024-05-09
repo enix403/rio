@@ -3,7 +3,10 @@
 #![allow(unused_mut)]
 
 use num_traits::*;
-use std::io::{self, Read};
+use std::{
+    io::{self, Read},
+    iter::repeat_with,
+};
 
 enum InputError {
     IO(io::Error),
@@ -145,6 +148,33 @@ where
 
         result
     }
+
+    pub fn read_n<T, N>(&mut self, n: N) -> Option<Vec<T>>
+    where
+        T: Extract,
+        N: Unsigned + ToPrimitive
+    {
+        std::iter::repeat_with(|| self.read())
+            .take(unsafe { n.to_usize().unwrap_unchecked() })
+            .collect()
+    }
+
+    pub fn read_or_default<T>(&mut self) -> T
+    where
+        T: Extract + Default,
+    {
+        self.read().unwrap_or_default()
+    }
+
+    pub fn read_n_or_default<T, N>(&mut self, n: N) -> Vec<T>
+    where
+        T: Extract + Default,
+        N: Unsigned + ToPrimitive
+    {
+        std::iter::repeat_with(|| self.read_or_default())
+            .take(unsafe { n.to_usize().unwrap_unchecked() })
+            .collect()
+    }
 }
 
 fn extract_int<T, R>(rio: &mut Rio<R>) -> Option<T>
@@ -240,19 +270,14 @@ impl Extract for String {
 fn main() {
     let mut rio = Rio::new(io::stdin().bytes());
 
-    let a = rio.read::<u32>().unwrap_or_default();
-    let b = rio.read::<u32>().unwrap_or_default();
-    println!("{} x {} = {}", a, b, a * b);
+    let name: String = rio.read_or_default();
 
-    let s = rio.read::<String>().unwrap_or_default();
-    println!("\"{}\"", s);
+    let n: u32 = rio.read_or_default();
+    let d: u32 = rio.read_or_default();
 
-    let s = rio.readline().unwrap_or_default();
-    println!("\"{}\"", s);
+    let values: Vec<u32> = rio.read_n_or_default::<u32, _>(n);
 
-    let s = rio.readline().unwrap_or_default();
-    println!("\"{}\"", s);
-    
-    let s = rio.readline().unwrap_or_default();
-    println!("\"{}\"", s);
+    println!("name = {}", name);
+    println!("n = {}, d = {}", n, d);
+    println!("values = {:?}", values);
 }
