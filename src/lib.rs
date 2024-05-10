@@ -152,7 +152,7 @@ impl<R: Read> Rio<R> {
     }
 }
 
-fn extract_int<T>(rio: &mut Rio<impl Read>) -> Option<T>
+fn extract_int<T>(rio: &mut Rio<impl Read>, is_signed: bool) -> Option<T>
 where
     T: Zero + FromPrimitive + CheckedAdd<Output = T> + CheckedMul<Output = T>,
 {
@@ -161,11 +161,22 @@ where
 
     let mut started = false;
 
+    let mut sign: i8 = 1;
+    let mut sign_consumed = false;
+
     while let Some(current) = rio.getch() {
         let as_digit = utils::to_digit(current);
 
+        if is_signed {
+            if !started && !sign_consumed && current == b'-' {
+                sign = -1;
+                sign_consumed = true;
+                continue;
+            }
+        }
+
         let updated = as_digit.and_then(|x| {
-            let x = utils::small_value_to_num(x);
+            let x = utils::small_value_to_num(x * sign);
             val.checked_mul(&ten).and_then(|val| val.checked_add(&x))
         });
 
@@ -189,27 +200,28 @@ where
 }
 
 macro_rules! extract_int_impl {
-    ($type:ty) => {
+    ($type:ty, $is_signed:expr) => {
         impl Extract for $type {
             fn extract(rio: &mut Rio<impl Read>) -> Option<Self> {
-                extract_int(rio)
+                extract_int(rio, $is_signed)
             }
         }
     };
 }
 
-extract_int_impl!(u8);
-extract_int_impl!(i8);
-extract_int_impl!(u16);
-extract_int_impl!(i16);
-extract_int_impl!(u32);
-extract_int_impl!(i32);
-extract_int_impl!(u64);
-extract_int_impl!(i64);
-extract_int_impl!(u128);
-extract_int_impl!(i128);
-extract_int_impl!(usize);
-extract_int_impl!(isize);
+extract_int_impl!(u8, false);
+extract_int_impl!(u16, false);
+extract_int_impl!(u32, false);
+extract_int_impl!(u64, false);
+extract_int_impl!(u128, false);
+extract_int_impl!(usize, false);
+
+extract_int_impl!(i8, true);
+extract_int_impl!(i16, true);
+extract_int_impl!(i32, true);
+extract_int_impl!(i64, true);
+extract_int_impl!(i128, true);
+extract_int_impl!(isize, true);
 
 impl Extract for String {
     fn extract(rio: &mut Rio<impl Read>) -> Option<Self> {
