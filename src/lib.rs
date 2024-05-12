@@ -195,6 +195,9 @@ where
     if started {
         Some(val)
     } else {
+        if sign_consumed {
+            rio.ungetch(b'-');
+        }
         None
     }
 }
@@ -222,6 +225,59 @@ extract_int_impl!(i32, true);
 extract_int_impl!(i64, true);
 extract_int_impl!(i128, true);
 extract_int_impl!(isize, true);
+
+impl Extract for f32 {
+    fn extract(rio: &mut Rio<impl Read>) -> Option<Self> {
+        let mut val: Self = 0.0;
+
+        let mut started = false;
+
+        let mut sign: Self = 1.0;
+        let mut sign_consumed = false;
+
+        let mut left_side = true;
+        let mut fract_mult: Self = 0.1;
+
+        while let Some(current) = rio.getch() {
+            if left_side && !started && !sign_consumed && current == b'-' {
+                sign = -1.0;
+                sign_consumed = true;
+                continue;
+            }
+
+            if left_side && current == b'.' {
+                left_side = false;
+                continue;
+            }
+
+            let Some(digit) = utils::to_digit(current) else {
+                rio.ungetch(current);
+                break;
+            };
+
+            let digit = digit as Self;
+
+            if left_side {
+                val.mul_add_assign(10.0, digit * sign);
+            }
+            else {
+                val += fract_mult * digit * sign;
+                fract_mult *= 0.1;
+            }
+            started = true;
+        }
+
+        if started {
+            Some(val)
+        } else {
+            if !left_side {
+                rio.ungetch(b'.');
+            }
+            // any sign consumed will not be ungetch'ed
+            None
+        }
+    }
+}
 
 impl Extract for String {
     fn extract(rio: &mut Rio<impl Read>) -> Option<Self> {
