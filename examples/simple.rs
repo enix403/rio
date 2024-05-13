@@ -1,10 +1,10 @@
 use std::io::Cursor;
 
 fn main() {
-    let mut rio = rio::Rio::new(Cursor::new(String::from("-45.0")));
+    let mut rio = rio::Rio::new(Cursor::new(String::from("4.1565")));
     // let mut rio = rio::Rio::new(std::io::stdin());
 
-    let a: f32 = rio.read_or_default();
+    let a: f64 = rio.read_or_default();
     // let b: u32 = rio.read_or_default();
 
     println!("a = {}", a);

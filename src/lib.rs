@@ -226,58 +226,82 @@ extract_int_impl!(i64, true);
 extract_int_impl!(i128, true);
 extract_int_impl!(isize, true);
 
-impl Extract for f32 {
-    fn extract(rio: &mut Rio<impl Read>) -> Option<Self> {
-        let mut val: Self = 0.0;
+fn extract_float<F>(rio: &mut Rio<impl Read>) -> Option<F>
+where
+    F: Float
+        + Zero
+        + FromPrimitive
+        + MulAddAssign<F, F>
+        + std::ops::AddAssign<F>
+        + std::ops::MulAssign<F>
+        + std::fmt::Display,
+{
+    let mut val = F::zero();
 
-        let mut started = false;
+    let mut started = false;
 
-        let mut sign: Self = 1.0;
-        let mut sign_consumed = false;
+    let mut sign: f64 = 1.0;
+    let mut sign_consumed = false;
 
-        let mut left_side = true;
-        let mut fract_mult: Self = 0.1;
+    let one_over_ten: F = F::from_f64(0.1).unwrap();
+    let ten = F::from_i8(10).unwrap();
 
-        while let Some(current) = rio.getch() {
-            if left_side && !started && !sign_consumed && current == b'-' {
-                sign = -1.0;
-                sign_consumed = true;
-                continue;
-            }
+    let mut left_side = true;
+    let mut fract_mult = one_over_ten;
 
-            if left_side && current == b'.' {
-                left_side = false;
-                continue;
-            }
-
-            let Some(digit) = utils::to_digit(current) else {
-                rio.ungetch(current);
-                break;
-            };
-
-            let digit = digit as Self;
-
-            if left_side {
-                val.mul_add_assign(10.0, digit * sign);
-            }
-            else {
-                val += fract_mult * digit * sign;
-                fract_mult *= 0.1;
-            }
-            started = true;
+    while let Some(current) = rio.getch() {
+        if left_side && !started && !sign_consumed && current == b'-' {
+            sign = -1.0;
+            sign_consumed = true;
+            continue;
         }
 
-        if started {
-            Some(val)
+        if left_side && current == b'.' {
+            left_side = false;
+            continue;
+        }
+
+        let Some(digit) = utils::to_digit(current) else {
+            rio.ungetch(current);
+            break;
+        };
+
+        let digit = digit as f64;
+        let signed_digit = F::from_f64(digit * sign).unwrap();
+
+        if left_side {
+            val.mul_add_assign(ten, signed_digit);
         } else {
-            if !left_side {
-                rio.ungetch(b'.');
-            }
-            // any sign consumed will not be ungetch'ed
-            None
+            let portion = fract_mult * signed_digit;
+            val += portion;
+            fract_mult *= one_over_ten;
         }
+        started = true;
+    }
+
+    if started {
+        Some(val)
+    } else {
+        if !left_side {
+            rio.ungetch(b'.');
+        }
+        // any sign consumed will not be ungetch'ed
+        None
     }
 }
+
+macro_rules! extract_float_impl {
+    ($type:ty) => {
+        impl Extract for $type {
+            fn extract(rio: &mut Rio<impl Read>) -> Option<Self> {
+                extract_float(rio)
+            }
+        }
+    };
+}
+
+extract_float_impl!(f32);
+extract_float_impl!(f64);
 
 impl Extract for String {
     fn extract(rio: &mut Rio<impl Read>) -> Option<Self> {
